@@ -20,9 +20,8 @@ app.use(
     ":method :url :status :res[content-length] - :response-time ms :payload"
   )
 );
-
 // mock storage. Not persisted on restart
-let contacts = [``
+let contacts = [
   {
     id: 1,
     name: "Arto Hellas",
