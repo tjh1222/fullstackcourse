@@ -1,6 +1,8 @@
+require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
+const Contact = require("./models/contact");
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -17,101 +19,120 @@ morgan.token("payload", function (req, res) {
   return JSON.stringify(req.body);
 });
 
+const errorHandler = (error, req, res, next) => {
+  console.log("This is the error handler I made.");
+  if (error.name === "CastError") {
+    return res.status(400).send({ error: "Malformed Id" });
+  }
+  // only hanlding Casting Errors for now in this custom eventhandler. The default handler takes care of the rest for now.
+  next(error);
+};
+
 app.use(
   morgan(
     ":method :url :status :res[content-length] - :response-time ms :payload"
   )
 );
-// mock storage. Not persisted on restart
-let contacts = [
-  {
-    id: 1,
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: 2,
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: 3,
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: 4,
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-];
-
-const generatePrimaryKey = () => {
-  const randomInt = Math.ceil(Math.random() * 99999999999999);
-  return randomInt;
-};
 
 app.get("/info", (req, res) => {
   const date = new Date();
 
-  res.send(
-    `<p>Phonebook has info for ${contacts.length} people!</p>
-    <p>
-      ${date.toString()}
-    </p>`
-  );
+  Contact.find({}).then((result) => {
+    console.log("result", result);
+    res.send(
+      `<p>Phonebook has info for ${result.length} people!</p>
+      <p>
+        ${date.toString()}
+      </p>`
+    );
+  });
 });
 
 app.get("/api/persons/", (req, res) => {
-  res.json([...contacts]);
+  // res.json([...contacts]);
+  Contact.find({}).then((contacts) => {
+    console.log("Contacts", contacts);
+    res.json(contacts);
+  });
 });
 
-app.get("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  console.log(id);
-
-  const contact = contacts.find((contact) => contact.id === id);
-
-  if (contact) {
-    console.log("testing..");
-    return res.json({ ...contact });
-  } else {
-    res.status(404).end();
-  }
+app.get("/api/persons/:id", (req, res, next) => {
+  Contact.findById(req.params.id)
+    .then((contact) => {
+      console.log("bobbby");
+      if (contact) {
+        return res.json(contact);
+      } else {
+        res.status(404).end();
+      }
+    })
+    .catch((error) => {
+      console.log(error);
+      // res.status(400).send({ error: "malformatted id" });
+      next(error);
+    });
 });
 
 app.post("/api/persons", (request, response) => {
-  const contact = request.body;
+  const body = request.body;
 
-  if (!contact.name || !contact.number) {
+  if (!body.name || !body.number) {
     return response
       .status(400)
       .json({ error: "Missing required params 'name' or 'number" });
   }
 
-  const existingContact = contacts.find((c) => c.name === contact.name);
+  const existingContact = Contact.find({ name: body.name });
 
   console.log(existingContact);
   if (existingContact) {
     return response.status(400).json({ error: "Contact already exists." });
   }
 
-  contact["id"] = generatePrimaryKey();
+  const contact = new Contact({ name: body.name, number: body.number });
 
-  console.log(contact);
-  contacts.push(contact);
-  response.json(contact);
+  contact.save().then((savedContact) => {
+    console.log(savedContact);
+    response.json(savedContact);
+  });
 });
 
-app.delete("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
+app.put("/api/persons/:id", (request, response, next) => {
+  const id = request.params.id;
+
+  const updatePayload = {
+    name: request.body.name,
+    number: request.body.number,
+  };
+
+  console.log(updatePayload);
+  console.log("id", id);
+
+  Contact.findByIdAndUpdate(id, updatePayload, { new: true })
+    .then((updatedContact) => {
+      console.log("after update", updatedContact);
+      return response.json(updatedContact);
+    })
+    .catch((error) => {
+      next(error);
+    });
+});
+
+app.delete("/api/persons/:id", (req, res, next) => {
+  const id = req.params.id;
 
   console.log(id);
 
-  contacts = contacts.filter((contact) => contact.id !== id);
-
-  return res.status(204).end();
+  contacts = Contact.findByIdAndDelete(id)
+    .then((response) => {
+      return res.status(204).end();
+    })
+    .catch((error) => {
+      next(error);
+    });
 });
+
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
