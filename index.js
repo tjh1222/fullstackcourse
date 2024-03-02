@@ -85,7 +85,7 @@ app.post("/api/persons", (request, response) => {
   const existingContact = Contact.find({ name: body.name });
 
   console.log(existingContact);
-  if (existingContact) {
+  if (existingContact.length != 0) {
     return response.status(400).json({ error: "Contact already exists." });
   }
 
