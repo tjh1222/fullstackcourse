@@ -59,7 +59,6 @@ app.get("/api/persons/", (req, res) => {
 app.get("/api/persons/:id", (req, res, next) => {
   Contact.findById(req.params.id)
     .then((contact) => {
-      console.log("bobbby");
       if (contact) {
         return res.json(contact);
       } else {
@@ -82,18 +81,19 @@ app.post("/api/persons", (request, response) => {
       .json({ error: "Missing required params 'name' or 'number" });
   }
 
-  const existingContact = Contact.find({ name: body.name });
+  Contact.find({ name: body.name }).then((existingContacts) => {
+    console.log("existing", existingContacts);
+    console.log("length", existingContacts.length);
+    if (existingContacts.length != 0) {
+      return response.status(400).json({ error: "Contact already exists." });
+    }
 
-  console.log(existingContact);
-  if (existingContact.length != 0) {
-    return response.status(400).json({ error: "Contact already exists." });
-  }
+    const contact = new Contact({ name: body.name, number: body.number });
 
-  const contact = new Contact({ name: body.name, number: body.number });
-
-  contact.save().then((savedContact) => {
-    console.log(savedContact);
-    response.json(savedContact);
+    contact.save().then((savedContact) => {
+      console.log(savedContact);
+      response.json(savedContact);
+    });
   });
 });
 
