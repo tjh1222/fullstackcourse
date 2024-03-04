@@ -6,8 +6,20 @@ mongoose.set("strictQuery", false);
 mongoose.connect(url);
 
 const contactSchema = new mongoose.Schema({
-  name: String,
-  number: String,
+  name: { type: String, minLength: 3, required: true },
+  number: {
+    type: String,
+    validate: {
+      validator: function (v) {
+        console.log("hello", v, typeof v, typeof this.number);
+        // const result = /^\d{2,3}-\d{6,}$/.test(v);
+        // console.log(result);
+        return /^\d{2,3}-\d{6,}$/.test(v);
+      },
+      message: "You did not provide a valid phone number for this contact.",
+    },
+    required: true,
+  },
 });
 
 // when json conversion occurs we drorenamep the _id to id and drop from response

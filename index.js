@@ -24,7 +24,14 @@ const errorHandler = (error, req, res, next) => {
   if (error.name === "CastError") {
     return res.status(400).send({ error: "Malformed Id" });
   }
-  // only hanlding Casting Errors for now in this custom eventhandler. The default handler takes care of the rest for now.
+
+  if (error.name === "ValidationError") {
+    return res.status(400).send({
+      error:
+        "You must provide a valid phone-number and a name that is at least 3 characters long.",
+    });
+  }
+
   next(error);
 };
 
@@ -72,7 +79,7 @@ app.get("/api/persons/:id", (req, res, next) => {
     });
 });
 
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", (request, response, next) => {
   const body = request.body;
 
   if (!body.name || !body.number) {
@@ -90,10 +97,15 @@ app.post("/api/persons", (request, response) => {
 
     const contact = new Contact({ name: body.name, number: body.number });
 
-    contact.save().then((savedContact) => {
-      console.log(savedContact);
-      response.json(savedContact);
-    });
+    contact
+      .save()
+      .then((savedContact) => {
+        console.log(savedContact);
+        response.json(savedContact);
+      })
+      .catch((error) => {
+        next(error);
+      });
   });
 });
 
@@ -108,7 +120,11 @@ app.put("/api/persons/:id", (request, response, next) => {
   console.log(updatePayload);
   console.log("id", id);
 
-  Contact.findByIdAndUpdate(id, updatePayload, { new: true })
+  Contact.findByIdAndUpdate(id, updatePayload, {
+    new: true,
+    runValidators: true,
+    // context: "query",
+  })
     .then((updatedContact) => {
       console.log("after update", updatedContact);
       return response.json(updatedContact);
